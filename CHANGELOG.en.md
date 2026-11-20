@@ -25,7 +25,11 @@ First release.
 - A WeakSet marks the change events the client dispatches back into the hidden input, so a failed
   conversion cannot be intercepted again in an infinite retry; the original file reaches the
   official upload path exactly once.
+- The client only intercepts paste, drop and file picking inside a composer card. It no longer falls
+  back to the last visible composer, so file operations elsewhere on the page are left untouched.
+- Each install owns a token; conversions still decoding or encoding after the plugin is disposed
+  never feed the composer.
 - Tool definitions use standard JSON Schema (`required` is an array of strings), so
-  `tools.register` accepts them directly. Added 17 unit tests (13 host, 4 client) covering the
+  `tools.register` accepts them directly. Added 19 unit tests (13 host, 6 client) covering the
   standard-schema shape, conversion, passthrough, sniffing, MIME precedence, allowlist prechecks,
-  re-entry protection, error paths, listener installation and cleanup.
+  composer scoping, disposal, re-entry protection, error paths, listener installation and cleanup.

@@ -20,9 +20,13 @@
   PNG/JPEG 的文件误转码。
 - 客户端回灌隐藏 input 时用 WeakSet 标记自己派发的 change，避免转换失败后再次拦截形成
   无限重试；原文件只交给官方上传链路一次。
+- 客户端只拦截位于 composer 卡片内的粘贴、拖放和文件选择，不再回退到最后一个可见 composer，
+  避免抢走页面其他区域的文件操作。
+- 每次安装持有令牌，插件卸载后仍在解码/编码的旧任务不会回灌 composer。
 - 工具定义使用标准 JSON Schema（`required` 为字符串数组），可直接通过 agent 作用域的
-  `tools.register` 校验；新增 17 条单元测试（宿主 13 条、客户端 4 条），覆盖标准 schema 形状、
-  转换、直通、嗅探、MIME 优先级、白名单前置检查、回灌防重入、错误路径、监听安装与清理。
+  `tools.register` 校验；新增 19 条单元测试（宿主 13 条、客户端 6 条），覆盖标准 schema 形状、
+  转换、直通、嗅探、MIME 优先级、白名单前置检查、composer 归属、卸载后失效、回灌防重入、
+  错误路径、监听安装与清理。
 
 - Added a same-name host `read_image` that shadows the official tool in each agent scope and converts
   AVIF/TIFF/SVG to PNG before the existing attachment service sees them. PNG/JPEG/WebP/GIF pass
@@ -44,5 +48,10 @@
 - A WeakSet marks the change events the client dispatches back into the hidden input, so a failed
   conversion cannot be intercepted again in an infinite retry; the original file reaches the
   official upload path exactly once.
-- Added 17 unit tests (13 host, 4 client) covering conversion, passthrough, sniffing, MIME
-  precedence, allowlist prechecks, re-entry protection, error paths, listener installation and cleanup.
+- The client only intercepts paste, drop and file picking inside a composer card. It no longer falls
+  back to the last visible composer, so file operations elsewhere on the page are left untouched.
+- Each install owns a token; conversions still decoding or encoding after the plugin is disposed
+  never feed the composer.
+- Added 19 unit tests (13 host, 6 client) covering conversion, passthrough, sniffing, MIME
+  precedence, allowlist prechecks, composer scoping, disposal, re-entry protection, error paths,
+  listener installation and cleanup.

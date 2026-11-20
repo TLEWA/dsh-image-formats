@@ -124,6 +124,72 @@ test('feeds a failed conversion back only once instead of re-entering the change
   assert.equal(dispatches, 1)
 })
 
+test('does not intercept a paste outside the composer', () => {
+  const { module, listeners, sandbox } = loadClient()
+  module.apply({})
+
+  const outside = new sandbox.Element()
+  outside.closest = () => null
+  let prevented = 0
+  const event = {
+    target: outside,
+    defaultPrevented: false,
+    clipboardData: {
+      files: [new sandbox.File([], 'outside.avif', { type: 'image/avif' })],
+      getData: () => '',
+    },
+    preventDefault() { prevented += 1 },
+    stopPropagation() {},
+    stopImmediatePropagation() {},
+  }
+  listeners.get('paste').listener(event)
+
+  assert.equal(prevented, 0)
+})
+
+test('stops feeding files after the plugin is disposed', async () => {
+  const { module, listeners, sandbox } = loadClient()
+  let cleanup
+  module.apply({
+    effect(factory) {
+      cleanup = factory()
+    },
+  })
+
+  const card = { isConnected: true }
+  const input = new sandbox.HTMLInputElement()
+  input.type = 'file'
+  input.disabled = false
+  input.files = [new sandbox.File([], 'late.avif', { type: 'image/avif' })]
+  input.closest = (selector) => selector === '[data-composer-card="true"]' ? card : null
+  card.querySelector = () => input
+
+  let resolveBitmap
+  sandbox.createImageBitmap = () => new Promise((resolve) => { resolveBitmap = resolve })
+  sandbox.document.createElement = () => ({
+    width: 0,
+    height: 0,
+    getContext: () => ({ drawImage() {} }),
+    toBlob(callback) { callback({ size: 10 }) },
+  })
+
+  let dispatches = 0
+  input.dispatchEvent = () => { dispatches += 1; return true }
+  const event = {
+    target: input,
+    defaultPrevented: false,
+    preventDefault() {},
+    stopPropagation() {},
+    stopImmediatePropagation() {},
+  }
+  listeners.get('change').listener(event)
+  cleanup()
+  resolveBitmap({ width: 10, height: 10, close() {} })
+  await new Promise((resolve) => setTimeout(resolve, 50))
+
+  assert.equal(dispatches, 0)
+})
+
 test('trusts a declared non-AVIF MIME over an avif filename', () => {
   const { module, listeners, sandbox } = loadClient()
   module.apply({})
