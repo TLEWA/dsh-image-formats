@@ -105,6 +105,26 @@ test('registers a shadow read_image for live and future agents', () => {
   assert.equal(second.agent.registered.length, 1)
 })
 
+test('declares standard JSON Schema instead of the defineTool DSL', () => {
+  const { agent } = agentFor()
+  const { services } = fakeServices({ agents: { list: () => [agent] } })
+  apply(makeCtx(services).ctx, { loadSharp: () => fakeSharp() })
+  const tool = agent.registered[0]
+
+  assert.deepEqual(tool.parameters.required, ['file_path'])
+  assert.deepEqual(tool.output.schema.required, ['path', 'image'])
+  assert.deepEqual(tool.output.schema.properties.image.required, ['attachmentId', 'mediaType', 'bytes', 'width', 'height'])
+  assert.deepEqual(tool.output.schema.properties.image.properties.originalDimensions.required, ['width', 'height'])
+
+  const walk = (node) => {
+    if (node === null || typeof node !== 'object') return
+    if (Object.hasOwn(node, 'required')) assert.ok(Array.isArray(node.required), 'required must be an array')
+    for (const value of Object.values(node)) walk(value)
+  }
+  walk(tool.parameters)
+  walk(tool.output.schema)
+})
+
 test('converts AVIF to PNG and keeps the attachment media type direct', async () => {
   const { agent } = agentFor()
   const { services, saved } = fakeServices({ agents: { list: () => [agent] } })

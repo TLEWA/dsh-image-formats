@@ -10,8 +10,9 @@
 **AVIF / TIFF / SVG**：需要时自动转成 PNG，再交给现有的附件与上传链路。
 
 DSH 原生只认 PNG、JPEG、WebP、GIF。AVIF 在客户端上传前就会被拒，`read_image` 也会按扩展名
-拒绝 AVIF/TIFF/SVG。本插件不改 `app.asar`，也不新增运行时依赖：宿主侧复用安装包自带的
-Sharp/libvips，客户端侧复用浏览器自带的解码器和 canvas。
+拒绝 AVIF/TIFF/SVG。本插件不改 `app.asar`，也不新增运行时依赖：宿主侧优先复用 DSH 桌面版
+自带的 Sharp/libvips，CLI profile 里没有时回退到某个 profile 已安装的 Sharp；客户端侧复用
+浏览器自带的解码器和 canvas。
 
 ## 它解决什么
 
@@ -40,7 +41,7 @@ Sharp/libvips，客户端侧复用浏览器自带的解码器和 canvas。
 4. 直接格式（PNG/JPEG/WebP/GIF）原样保存；AVIF/TIFF/SVG 先用 Sharp 转 PNG；
 5. 调 `attachments.saveImage`，返回与官方一致的 `{ path, image }`，并发出 `fs/observed`。
 
-转换使用安装包内的 Sharp：
+转换使用 DSH 安装包或 profile 内的 Sharp：
 
 - 输入限制 `limitInputPixels: 268435456`，`failOn: 'none'`，只取第一帧；
 - SVG 用 `density: 144` 渲染；其他格式按 EXIF 方向自动旋转；
@@ -49,8 +50,9 @@ Sharp/libvips，客户端侧复用浏览器自带的解码器和 canvas。
 
 Sharp 候选路径按顺序尝试：`DSH_IMAGE_FORMATS_SHARP` 环境变量、`process.resourcesPath` 下的
 `app.asar/dsh/node_modules/sharp` 与 `app.asar/node_modules/sharp`、可执行文件同级的
-`resources/...`、`DSH_HOME/profiles/<profile>/node_modules/sharp`，最后才是普通 `sharp`。
-DSH 桌面版自带的那份通常能在前几个候选里命中。
+`resources/...`、`<DSH_HOME>/profiles/<profile>/node_modules/sharp`（先当前 profile，再其他
+profile；`DSH_HOME` 未设置时用 `~/.dsh`），最后才是普通 `sharp`。DSH 桌面版自带的那份通常
+能在前几个候选里命中；CLI 没有内置 Sharp，需要某个 profile 里装过 Sharp。
 
 ### 客户端：在文件进入 composer 前换掉
 
@@ -72,8 +74,9 @@ DSH 桌面版自带的那份通常能在前几个候选里命中。
 
 要求：
 
-- DSH `0.2.2-rc.5` 或更新版本，且低于 `0.3.0`；
-- Node.js `20` 或更新版本（插件本身不新增依赖）。
+- DSH `0.2.1-rc.5` 或更新版本，且低于 `0.3.0`；
+- Node.js `20` 或更新版本（插件本身不新增依赖；DSH CLI 需要某个 profile 或环境中提供
+  Sharp，桌面版自带）。
 
 ### 从 npm 安装（发布后）
 
@@ -114,9 +117,9 @@ dsh plugin --profile desktop add .
 
 ## 兼容与限制
 
-- **HEIC/HEIF 不做**：DSH 自带的 Sharp/libvips 没有 HEVC 解码器（需要 libde265），所以即使
+- **HEIC/HEIF 不做**：DSH 桌面版自带的 Sharp/libvips 没有 HEVC 解码器（需要 libde265），所以即使
   转成 HEIC 也读不了。插件会明确报 `HEIC/HEIF (HEVC)`，并建议先转 AVIF/PNG/JPEG/WebP；
-- **JPEG XL、PSD、相机 RAW 不做**：自带 Sharp 没有这些解码器；
+- **JPEG XL、PSD、相机 RAW 不做**：Sharp 没有这些解码器；
 - 客户端只自动转换 **AVIF**。浏览器没有稳定的 TIFF 解码器，SVG 走 canvas 又涉及跨域/安全边界，
   所以拖拽 TIFF/SVG 仍会被官方上传链路拒绝；用 `read_image` 读路径不受影响；
 - 客户端是 Web UI 的 DOM 适配：依赖 composer 的隐藏文件输入和 `data-composer-card` 标记。
@@ -137,8 +140,8 @@ npm test        # node --test test/host.test.js test/client.test.js
 
 测试覆盖：
 
-- `test/host.test.js`：注册与去重、AVIF/TIFF/SVG 转 PNG、直接格式直通、无扩展名 AVIF 嗅探、
-  HEIC 拒绝、未知扩展名/空参数、非视觉模型、Sharp 缺失与转换失败；
+- `test/host.test.js`：注册与去重、标准 JSON Schema 形状、AVIF/TIFF/SVG 转 PNG、直接格式
+  直通、无扩展名 AVIF 嗅探、HEIC 拒绝、未知扩展名/空参数、非视觉模型、Sharp 缺失与转换失败；
 - `test/client.test.js`：用 `node:vm` 加载客户端包，验证 ModuleLoader id、`inject`、`apply`
   安装的三个捕获监听，以及 `ctx.effect` 的清理。
 

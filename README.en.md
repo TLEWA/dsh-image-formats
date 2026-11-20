@@ -12,8 +12,9 @@ existing attachment and upload paths.
 
 Stock DSH accepts PNG, JPEG, WebP and GIF only. AVIF is rejected by the client before upload, and
 `read_image` rejects AVIF/TIFF/SVG by extension. This plugin edits neither `app.asar` nor adds a
-runtime dependency: the host half reuses the Sharp/libvips bundled with DSH, and the client half
-reuses the browser decoder and canvas.
+runtime dependency: the host half prefers the Sharp/libvips bundled with DSH desktop and falls back
+to a Sharp installed in a DSH profile when the CLI has none, while the client half reuses the
+browser decoder and canvas.
 
 ## What it changes
 
@@ -44,7 +45,7 @@ Execution mirrors the official tool:
 4. store direct formats (PNG/JPEG/WebP/GIF) as-is; convert AVIF/TIFF/SVG to PNG with Sharp first;
 5. call `attachments.saveImage`, return the same `{ path, image }` shape, and emit `fs/observed`.
 
-Conversion uses the Sharp that ships with the installation:
+Conversion uses the Sharp bundled with DSH or installed in a profile:
 
 - `limitInputPixels: 268435456`, `failOn: 'none'`, first frame only;
 - SVG is rendered at `density: 144`; other formats are auto-rotated from EXIF orientation;
@@ -54,9 +55,10 @@ Conversion uses the Sharp that ships with the installation:
 
 Sharp candidates, in order: the `DSH_IMAGE_FORMATS_SHARP` environment variable,
 `app.asar/dsh/node_modules/sharp` and `app.asar/node_modules/sharp` under `process.resourcesPath`,
-the same `resources/...` paths next to the executable, `DSH_HOME/profiles/<profile>/node_modules/sharp`,
-and finally a plain `sharp`. The copy bundled with DSH desktop normally matches one of the first
-candidates.
+the same `resources/...` paths next to the executable, `<DSH_HOME>/profiles/<profile>/node_modules/sharp`
+(the active profile first, then the others; `~/.dsh` is used when `DSH_HOME` is unset), and finally a
+plain `sharp`. The copy bundled with DSH desktop normally matches one of the first candidates; the
+CLI ships no Sharp, so a profile with Sharp installed is required there.
 
 ### Client: replace the file before it reaches the composer
 
@@ -80,8 +82,9 @@ text is not swallowed.
 
 Requirements:
 
-- DSH `0.2.2-rc.5` or newer, below `0.3.0`;
-- Node.js `20` or newer (the plugin adds no dependencies).
+- DSH `0.2.1-rc.5` or newer, below `0.3.0`;
+- Node.js `20` or newer (the plugin adds no dependencies; the DSH CLI needs Sharp from a profile
+  or the environment, while desktop bundles it).
 
 ### From npm (after release)
 
@@ -123,10 +126,10 @@ effect after the Web UI refreshes.
 
 ## Compatibility and limitations
 
-- **No HEIC/HEIF**: the Sharp/libvips bundled with DSH has no HEVC decoder (it needs libde265), so
+- **No HEIC/HEIF**: the Sharp/libvips bundled with DSH desktop has no HEVC decoder (it needs libde265), so
   even a converted HEIC cannot be read. The plugin reports `HEIC/HEIF (HEVC)` and suggests converting
   to AVIF/PNG/JPEG/WebP first;
-- **No JPEG XL, PSD or camera RAW**: the bundled Sharp has no decoder for them;
+- **No JPEG XL, PSD or camera RAW**: Sharp has no decoder for them;
 - the client converts **AVIF only**. Browsers have no stable TIFF decoder, and SVG through canvas
   raises cross-origin/security questions, so dropping TIFF/SVG is still rejected by the official
   upload path; reading those paths with `read_image` is unaffected;
@@ -150,9 +153,9 @@ npm test        # node --test test/host.test.js test/client.test.js
 
 Coverage:
 
-- `test/host.test.js`: registration and de-duplication, AVIF/TIFF/SVG conversion, direct passthrough,
-  extension-less AVIF sniffing, HEIC refusal, unknown extension/empty argument, a route without
-  image input, missing Sharp and conversion failure;
+- `test/host.test.js`: registration and de-duplication, standard JSON Schema shape, AVIF/TIFF/SVG
+  conversion, direct passthrough, extension-less AVIF sniffing, HEIC refusal, unknown
+  extension/empty argument, a route without image input, missing Sharp and conversion failure;
 - `test/client.test.js`: loads the client bundle through `node:vm`, checks the ModuleLoader id,
   `inject`, the three capture listeners installed by `apply`, and cleanup through `ctx.effect`.
 
