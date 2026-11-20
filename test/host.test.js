@@ -257,3 +257,36 @@ test('reports conversion failures and unavailable sharp distinctly', async () =>
     (error) => error.code === 'IMAGE_CONVERT_FAILED' && /bad codec/.test(error.message),
   )
 })
+
+test('checks the PNG attachment whitelist before reading a convertible file', async () => {
+  const { agent } = agentFor()
+  const { services } = fakeServices({
+    agents: { list: () => [agent] },
+    attachments: {
+      imageLimits: {
+        mediaTypes: ['image/jpeg'],
+        maxImageBytes: 1024 * 1024,
+        maxMessageImageBytes: 2 * 1024 * 1024,
+        maxImageDimension: 2048,
+        maxImagePixels: 4096 * 4096,
+      },
+    },
+  })
+  let reads = 0
+  services.fs = {
+    ...services.fs,
+    readBytes: async () => {
+      reads += 1
+      return AVIF
+    },
+  }
+  const { ctx } = makeCtx(services)
+  apply(ctx, { loadSharp: () => fakeSharp() })
+  const tool = agent.registered[0]
+
+  await assert.rejects(
+    () => tool.execute({ file_path: 'picture.avif' }, exec),
+    (error) => error.code === 'IMAGE_UNSUPPORTED_FORMAT' && /image\/png/.test(error.message),
+  )
+  assert.equal(reads, 0)
+})
