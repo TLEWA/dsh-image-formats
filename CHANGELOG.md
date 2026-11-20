@@ -11,6 +11,8 @@
   返回可诊断的错误码。
 - 对已由扩展名确定为 AVIF/TIFF/SVG 的文件，先检查最终输出 `image/png` 是否在部署的附件白名单内，
   再读取和解码源文件；无扩展名文件先按字节嗅探，避免把合法的 JPEG 等直通格式误拒。
+- 转换完成后、保存附件前检查 `exec.signal`；用户在 Sharp 转换期间取消调用时不再持久化附件，
+  也不发出 `fs/observed`。
 - HEIC/HEIF 明确报错：自带 libvips 没有 HEVC 解码器，插件建议先转 AVIF/PNG/JPEG/WebP；
   JXL/PSD/相机 RAW 同样不在支持范围。
 - 客户端在捕获阶段拦截粘贴、拖拽和文件选择中的 AVIF，用浏览器解码后编码为 PNG，再写回
@@ -23,10 +25,11 @@
 - 客户端只拦截位于 composer 卡片内的粘贴、拖放和文件选择，不再回退到最后一个可见 composer，
   避免抢走页面其他区域的文件操作。
 - 每次安装持有令牌，插件卸载后仍在解码/编码的旧任务不会回灌 composer。
+- 每次安装的清理函数幂等；重复 `apply` 时旧上下文不会误删新安装的监听器。
 - 工具定义使用标准 JSON Schema（`required` 为字符串数组），可直接通过 agent 作用域的
-  `tools.register` 校验；新增 19 条单元测试（宿主 13 条、客户端 6 条），覆盖标准 schema 形状、
-  转换、直通、嗅探、MIME 优先级、白名单前置检查、composer 归属、卸载后失效、回灌防重入、
-  错误路径、监听安装与清理。
+  `tools.register` 校验；新增 21 条单元测试（宿主 14 条、客户端 7 条），覆盖标准 schema 形状、
+  转换、直通、嗅探、MIME 优先级、白名单前置检查、composer 归属、卸载后失效、取消、幂等清理、
+  回灌防重入、错误路径、监听安装与清理。
 
 - Added a same-name host `read_image` that shadows the official tool in each agent scope and converts
   AVIF/TIFF/SVG to PNG before the existing attachment service sees them. PNG/JPEG/WebP/GIF pass
@@ -36,6 +39,8 @@
 - Files whose extension already identifies them as AVIF/TIFF/SVG check the final `image/png` type
   against the deployment's attachment allowlist before reading or decoding the source. Extension-less
   files are sniffed first, so a legitimate JPEG passthrough is never rejected by that precheck.
+- After conversion, before saving the attachment, `exec.signal` is checked; cancelling a call while
+  Sharp is converting no longer persists an attachment or emits `fs/observed`.
 - HEIC/HEIF is refused explicitly: the bundled libvips has no HEVC decoder, so the plugin suggests
   converting to AVIF/PNG/JPEG/WebP first. JXL, PSD and camera RAW are likewise out of scope.
 - The client intercepts AVIF on paste, drop and file picking at capture phase, decodes it in the
@@ -52,6 +57,8 @@
   back to the last visible composer, so file operations elsewhere on the page are left untouched.
 - Each install owns a token; conversions still decoding or encoding after the plugin is disposed
   never feed the composer.
-- Added 19 unit tests (13 host, 6 client) covering conversion, passthrough, sniffing, MIME
-  precedence, allowlist prechecks, composer scoping, disposal, re-entry protection, error paths,
-  listener installation and cleanup.
+- Each install's cleanup is idempotent: a repeated `apply` cannot let the old context remove the new
+  install's listeners.
+- Added 21 unit tests (14 host, 7 client) covering conversion, passthrough, sniffing, MIME
+  precedence, allowlist prechecks, composer scoping, disposal, cancellation, idempotent cleanup,
+  re-entry protection, error paths, listener installation and cleanup.

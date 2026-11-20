@@ -338,3 +338,37 @@ test('rejects an extension-less convertible file before decoding when PNG is not
   assert.equal(reads, 1)
   assert.equal(sharpCalls, 0)
 })
+
+test('does not save an image when the call is aborted during conversion', async () => {
+  const { agent } = agentFor()
+  const { services, saved } = fakeServices({ agents: { list: () => [agent] } })
+  let release
+  const sharp = () => ({
+    rotate() { return this },
+    png() { return this },
+    toBuffer() {
+      return new Promise((resolve) => {
+        release = () => resolve(PNG)
+      })
+    },
+  })
+  const { ctx } = makeCtx(services)
+  let observed = 0
+  ctx.emit = () => { observed += 1 }
+  apply(ctx, { loadSharp: () => sharp })
+  const tool = agent.registered[0]
+  const controller = new AbortController()
+
+  const pending = tool.execute(
+    { file_path: 'picture.avif' },
+    { ...exec, signal: controller.signal },
+  )
+  await new Promise((resolve) => setTimeout(resolve, 10))
+  assert.equal(typeof release, 'function')
+  controller.abort()
+  release()
+
+  await assert.rejects(pending, (error) => error.name === 'AbortError')
+  assert.equal(saved.length, 0)
+  assert.equal(observed, 0)
+})

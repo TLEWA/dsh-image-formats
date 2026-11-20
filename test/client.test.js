@@ -8,13 +8,16 @@ const source = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8'
 function loadClient() {
   let captured
   const listeners = new Map()
+  const activeListeners = new Map()
   const removed = []
   const document = {
     addEventListener(type, listener, capture) {
       listeners.set(type, { listener, capture })
+      activeListeners.set(type, listener)
     },
     removeEventListener(type, listener, capture) {
       removed.push({ type, listener, capture })
+      if (activeListeners.get(type) === listener) activeListeners.delete(type)
     },
   }
   class FakeElement {}
@@ -58,7 +61,7 @@ function loadClient() {
   vm.runInNewContext(source, sandbox)
   assert.equal(captured.id, 'dsh-image-formats')
   const module = captured.factory(() => { throw new Error('no imports expected') })
-  return { module, listeners, removed, window: sandbox.window, sandbox }
+  return { module, listeners, activeListeners, removed, window: sandbox.window, sandbox }
 }
 
 test('loads as a DSH client module', () => {
@@ -87,6 +90,21 @@ test('installs capture listeners and removes them through ctx.effect', () => {
   assert.equal(typeof cleanup, 'function')
   cleanup()
   assert.equal(removed.length, 3)
+})
+
+test('does not let a superseded install remove the current listeners', () => {
+  const { module, activeListeners } = loadClient()
+  let cleanup
+  module.apply({
+    effect(factory) {
+      cleanup = factory()
+    },
+  })
+  module.apply({})
+  assert.equal(activeListeners.size, 3)
+
+  cleanup()
+  assert.equal(activeListeners.size, 3)
 })
 
 test('feeds a failed conversion back only once instead of re-entering the change listener', async () => {

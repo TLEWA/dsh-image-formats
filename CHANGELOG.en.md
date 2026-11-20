@@ -13,6 +13,8 @@ First release.
 - Files whose extension already identifies them as AVIF/TIFF/SVG check the final `image/png` type
   against the deployment's attachment allowlist before reading or decoding the source. Extension-less
   files are sniffed first, so a legitimate JPEG passthrough is never rejected by that precheck.
+- After conversion, before saving the attachment, `exec.signal` is checked; cancelling a call while
+  Sharp is converting no longer persists an attachment or emits `fs/observed`.
 - HEIC/HEIF is refused explicitly: the bundled libvips has no HEVC decoder, so the plugin suggests
   converting to AVIF/PNG/JPEG/WebP first. JXL, PSD and camera RAW are likewise out of scope.
 - The client intercepts AVIF on paste, drop and file picking at capture phase, decodes it in the
@@ -29,7 +31,10 @@ First release.
   back to the last visible composer, so file operations elsewhere on the page are left untouched.
 - Each install owns a token; conversions still decoding or encoding after the plugin is disposed
   never feed the composer.
+- Each install's cleanup is idempotent: a repeated `apply` cannot let the old context remove the new
+  install's listeners.
 - Tool definitions use standard JSON Schema (`required` is an array of strings), so
-  `tools.register` accepts them directly. Added 19 unit tests (13 host, 6 client) covering the
+  `tools.register` accepts them directly. Added 21 unit tests (14 host, 7 client) covering the
   standard-schema shape, conversion, passthrough, sniffing, MIME precedence, allowlist prechecks,
-  composer scoping, disposal, re-entry protection, error paths, listener installation and cleanup.
+  composer scoping, disposal, cancellation, idempotent cleanup, re-entry protection, error paths,
+  listener installation and cleanup.
