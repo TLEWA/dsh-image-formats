@@ -1,0 +1,10 @@
+# dsh-image-formats bundle patch
+#
+# Install into a profile with:
+#
+#   dsh plugin --profile <name> add dsh-image-formats
+#
+# The profile boot composes this patch and mounts the host row below.
+- insert:
+    - id: image-formats
+      name: 'dsh-image-formats'
