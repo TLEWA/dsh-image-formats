@@ -1,0 +1,63 @@
+# ---- dependencies ----
+node_modules/
+.pnp.*
+.pnp.js
+
+# ---- build / test output ----
+dist/
+build/
+out/
+coverage/
+*.tsbuildinfo
+test/tmp/
+tmp/
+.cache/
+
+# ---- npm pack artifacts ----
+*.tgz
+package-contents.txt
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---- local config & secrets ----
+.npmrc
+.npmrc.*
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ---- editors / OS ----
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+
+# ---- logs ----
+*.log
+logs/
+
+# ---- local working area (never published) ----
+scratch/
+.dsh/
+.dsh-meow/
+*.sqlite
+*.sqlite3
+*.db-journal
+e2e/
+extract/
+upstream/
+asar-index.json
+extracted-output.js
+*.asar
+*.asar.bak*
+app.asar.unpacked/
+.ci/

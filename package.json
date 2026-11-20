@@ -1,0 +1,68 @@
+{
+  "name": "dsh-image-formats",
+  "version": "0.1.0",
+  "description": "Let read_image and the composer accept AVIF/TIFF/SVG by converting them to PNG automatically. 让 read_image 与输入框自动把 AVIF/TIFF/SVG 转成 PNG，模型无需额外步骤即可读图。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "README.en.md",
+    "CHANGELOG.md",
+    "CHANGELOG.en.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "image",
+    "avif",
+    "tiff",
+    "svg",
+    "read-image",
+    "png",
+    "sharp"
+  ],
+  "author": "TLEWA",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TLEWA/dsh-image-formats.git"
+  },
+  "homepage": "https://github.com/TLEWA/dsh-image-formats#readme",
+  "bugs": {
+    "url": "https://github.com/TLEWA/dsh-image-formats/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "engines": {
+    "node": ">=20",
+    "dsh": ">=0.2.1-rc.5 <0.3.0-0"
+  },
+  "scripts": {
+    "check": "node --check lib/index.js && node --check lib/client.js",
+    "test": "node --test test/host.test.js test/client.test.js",
+    "prepack": "npm run check && npm test",
+    "prepublishOnly": "npx --yes --package=github:TLEWA/dsh-plugin-ci#v1 dsh-ci-gate --prepublish"
+  }
+}
