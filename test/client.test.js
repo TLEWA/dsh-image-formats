@@ -123,3 +123,26 @@ test('feeds a failed conversion back only once instead of re-entering the change
 
   assert.equal(dispatches, 1)
 })
+
+test('trusts a declared non-AVIF MIME over an avif filename', () => {
+  const { module, listeners, sandbox } = loadClient()
+  module.apply({})
+
+  const card = { isConnected: true }
+  const input = new sandbox.HTMLInputElement()
+  input.type = 'file'
+  input.files = [new sandbox.File([], 'photo.avif', { type: 'image/png' })]
+  input.closest = (selector) => selector === '[data-composer-card="true"]' ? card : null
+
+  let prevented = 0
+  const event = {
+    target: input,
+    defaultPrevented: false,
+    preventDefault() { prevented += 1 },
+    stopPropagation() {},
+    stopImmediatePropagation() {},
+  }
+  listeners.get('change').listener(event)
+
+  assert.equal(prevented, 0)
+})

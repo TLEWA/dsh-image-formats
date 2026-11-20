@@ -290,3 +290,51 @@ test('checks the PNG attachment whitelist before reading a convertible file', as
   )
   assert.equal(reads, 0)
 })
+
+test('keeps an extension-less JPEG readable when only JPEG is allowed', async () => {
+  const { agent } = agentFor()
+  const { services, saved } = fakeServices({ agents: { list: () => [agent] } })
+  services.attachments.imageLimits = {
+    ...services.attachments.imageLimits,
+    mediaTypes: ['image/jpeg'],
+  }
+  services.fs = {
+    ...services.fs,
+    readBytes: async () => Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+  }
+  const { ctx } = makeCtx(services)
+  apply(ctx, { loadSharp: () => fakeSharp() })
+  const tool = agent.registered[0]
+
+  const result = await tool.execute({ file_path: 'photo' }, exec)
+  assert.equal(result.image.mediaType, 'image/jpeg')
+  assert.equal(saved.length, 1)
+})
+
+test('rejects an extension-less convertible file before decoding when PNG is not allowed', async () => {
+  const { agent } = agentFor()
+  const { services } = fakeServices({ agents: { list: () => [agent] } })
+  services.attachments.imageLimits = {
+    ...services.attachments.imageLimits,
+    mediaTypes: ['image/jpeg'],
+  }
+  let reads = 0
+  services.fs = {
+    ...services.fs,
+    readBytes: async () => {
+      reads += 1
+      return AVIF
+    },
+  }
+  let sharpCalls = 0
+  const { ctx } = makeCtx(services)
+  apply(ctx, { loadSharp: () => { sharpCalls += 1; return fakeSharp() } })
+  const tool = agent.registered[0]
+
+  await assert.rejects(
+    () => tool.execute({ file_path: 'photo' }, exec),
+    (error) => error.code === 'IMAGE_UNSUPPORTED_FORMAT' && /image\/png/.test(error.message),
+  )
+  assert.equal(reads, 1)
+  assert.equal(sharpCalls, 0)
+})
