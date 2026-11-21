@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+- 客户端附件入口改用宿主公开槽位 `conversation.input.attachments`：从 owner props 取 `onAddFiles`，
+  转换后的 PNG 直接交给官方上传链路，不再依赖 `[data-composer-card="true"]` 加隐藏
+  `input[type="file"]` 这层宿主私有 DOM 实现。
+- 该槽位是单槽，注册即遮蔽宿主自带附件栏且没有公开的重建入口，因此桥接组件只在槽位为空时挂载，
+  一旦出现其他注册者立即撤销；这种情况下继续走 DOM 回灌，宿主附件栏保持原样。
+- 槽位注册与撤销全部幂等：`dispose` 清空回调、退订槽位、注销条目；槽位缺失或抛错只
+  `console.warn`，不打断宿主输入框。
+- 槽位服务晚于插件就绪时，插件监听 cordis 的 `internal/service` 事件补挂一次桥接，仍然只
+  认空槽；一直等不到就永久走 DOM 回灌。客户端没有模块依赖，按要求不声明 `dsh.client.inject`：
+  `slots` 通过 `ctx` 获取，不 import 宿主包。
+- `read_image` 宿主侧行为与 Sharp 探测逻辑未改动。
+
 ## [0.1.0] - 2026-11-20
 
 首个版本 / First release.

@@ -41,8 +41,13 @@
   `apply` / `inject` / `name`。
 - 只拦截 AVIF（`image/avif` 或没有其他类型的 `.avif` 扩展名）。paste 带非空 `text/plain` 时
   必须放行，避免吞文字。
-- 转换后必须写回 composer 的隐藏 file input，并派发冒泡的 `change`；不要调用私有上传函数，
-  也不要注册 UI slot。
+- 附件入口优先走宿主公开 slot `conversation.input.attachments`：从 owner props 取 `onAddFiles`，
+  转换结果直接交给官方上传链路。该 slot 是单槽，注册即遮蔽宿主自带附件栏且无法公开重建，
+  所以桥接只在槽位为空（`slots.entries(key).length === 0`）时挂载，出现其他注册者立即撤销。
+- 上述条件不成立或旧宿主没有 slot 时，回退到 DOM 路径：写回 composer 的隐藏 file input 并派发
+  冒泡的 `change`。不要调用私有上传函数；`[data-composer-card]` 只作为这条 fallback 存在的理由。
+- slot 注册必须幂等，`dispose` 要清空回调、退订、注销条目；slot 抛错只 `console.warn`，不能让异常
+  冒泡打断宿主输入框。
 - 监听必须用 capture 并在 `ctx.effect` 里移除；重复 `apply` 先调用上一次的清理函数。
 - 失败时保留原文件并 `console.warn`，不要让异常打断 composer 的其他文件。
 

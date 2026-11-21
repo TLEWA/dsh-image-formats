@@ -68,12 +68,20 @@ The client plugin listens at capture phase on `paste`, `drop` and `change`:
 2. decode with `createImageBitmap`, falling back to `<img>` plus an object URL;
 3. draw to canvas with a 2048 px long edge and encode with `canvas.toBlob('image/png')`; if the PNG
    is over 6MB, shrink toward 1024 px and retry;
-4. write the PNG back into the hidden `input[type=file][hidden]` in the composer with `DataTransfer`
-   and dispatch a bubbling `change` event.
+4. hand the PNG to the host's public `conversation.input.attachments` slot through its
+   `onAddFiles` owner prop, so the official `intakeFiles` upload path runs; only when the host has no
+   such slot does it fall back to the old DOM route — write the PNG back into the hidden
+   `input[type=file][hidden]` in the composer with `DataTransfer` and dispatch a bubbling `change`.
+
+That slot is a single cell: registering in it shadows the host's own attachment rail, which has no
+public rebuild entry. The bridge is therefore mounted only while the cell is empty and retracts as
+soon as another entry appears (a stock rc.5 install has the host's own rail there), so the plugin
+keeps the DOM write-back and the host UI is unchanged. If the slot service arrives after the plugin,
+the plugin waits for `internal/service` and attaches once.
 
 The official InputBar `onPickFiles` / `intakeFiles` path then handles the PNG normally; the plugin
-does not call any private upload function or register a UI slot. Conversion stays in memory — no
-temporary file and no network request.
+does not call any private upload function. Conversion stays in memory — no temporary file and no
+network request.
 
 If a paste also carries non-empty `text/plain`, the plugin leaves the event to native handling so
 text is not swallowed.
@@ -133,7 +141,8 @@ effect after the Web UI refreshes.
 - the client converts **AVIF only**. Browsers have no stable TIFF decoder, and SVG through canvas
   raises cross-origin/security questions, so dropping TIFF/SVG is still rejected by the official
   upload path; reading those paths with `read_image` is unaffected;
-- the client half is a Web UI DOM adaptation: it depends on the composer's hidden file input and the
+- the client half prefers the host's public `conversation.input.attachments` slot; while that cell
+  is occupied (a stock DSH install) it falls back to the composer's hidden file input and the
   `data-composer-card` marker. A DSH layout change that removes either needs a plugin update;
 - conversion keeps the first frame only: AVIF/TIFF animation or multi-page content is not carried
   over;
