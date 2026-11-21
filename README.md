@@ -62,11 +62,16 @@ profile；`DSH_HOME` 未设置时用 `~/.dsh`），最后才是普通 `sharp`。
 2. 用 `createImageBitmap` 解码，失败时回退到 `<img>` + object URL；
 3. 画到 canvas，长边限制 2048，用 `canvas.toBlob('image/png')` 编码；超过 6MB 时逐级缩到
    1024 再试；
-4. 用 `DataTransfer` 把 PNG 写回 composer 里隐藏的 `input[type=file][hidden]`，再派发一个
-   冒泡的 `change` 事件。
+4. 把 PNG 交给宿主公开槽位 `conversation.input.attachments` 的 `onAddFiles`（owner props），
+   由官方 `intakeFiles` 走原上传链路；只有宿主没有这个槽位时才回退到旧的 DOM 路径——用
+   `DataTransfer` 写回 composer 里隐藏的 `input[type=file][hidden]`，再派发冒泡的 `change` 事件。
+
+该槽位是单槽：注册进去会遮住宿主自带的附件栏，而那个附件栏没有公开的重建入口。所以桥接组件只在
+槽位为空时挂载，一旦出现其他注册者（正常安装的 rc.5 就有宿主自己那一个）立刻撤销，继续走 DOM
+回灌，宿主界面完全不变。槽位服务晚于插件就绪时，插件会等 `internal/service` 再补挂一次。
 
 这样官方 InputBar 的 `onPickFiles` / `intakeFiles` 会按原路径处理 PNG，插件不需要调用任何
-私有上传函数，也不需要注册 UI slot。转换在内存里完成，不落临时文件，不发网络请求。
+私有上传函数。转换在内存里完成，不落临时文件，不发网络请求。
 
 粘贴时如果剪贴板同时带非空 `text/plain`，插件会让给原生逻辑，避免吞掉文字。
 
@@ -122,8 +127,9 @@ dsh plugin --profile desktop add .
 - **JPEG XL、PSD、相机 RAW 不做**：Sharp 没有这些解码器；
 - 客户端只自动转换 **AVIF**。浏览器没有稳定的 TIFF 解码器，SVG 走 canvas 又涉及跨域/安全边界，
   所以拖拽 TIFF/SVG 仍会被官方上传链路拒绝；用 `read_image` 读路径不受影响；
-- 客户端是 Web UI 的 DOM 适配：依赖 composer 的隐藏文件输入和 `data-composer-card` 标记。
-  DSH 改版后如果这两处结构变了，需要跟着更新；
+- 客户端优先用宿主公开槽位 `conversation.input.attachments`；该槽位被占用时（DSH 默认安装
+  就是如此）回退到 composer 的隐藏文件输入和 `data-composer-card` 标记。DSH 改版后如果这两处
+  结构变了，需要跟着更新；
 - 转换只保留第一帧：AVIF/TIFF 的动画或多页内容不会带过去；
 - 转换会重新编码：EXIF、ICC/HDR、10-bit 等信息可能丢失或变化，PNG 体积也可能比原 AVIF 大；
 - 原文件不会被修改；会话里新增的是 PNG 附件；
