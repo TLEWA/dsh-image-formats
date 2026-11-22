@@ -141,7 +141,10 @@ effect after the Web UI refreshes.
   than the original AVIF;
 - the source file is never modified; the session receives a new PNG attachment;
 - the host gate matches the official tool: the calling route must declare `image` input, otherwise
-  `IMAGE_UNSUPPORTED_MODEL` is reported before any file is read;
+  `IMAGE_UNSUPPORTED_MODEL` is reported before any file is read. Host 0.2.3-alpha.1 renamed the same
+  failure to `MODEL_DOES_NOT_SUPPORT_IMAGES`; the plugin recognizes both spellings through
+  `IMAGE_MODEL_UNSUPPORTED_CODES` / `isImageModelUnsupportedCode()` and still reports the stable
+  `IMAGE_UNSUPPORTED_MODEL`, leaving every other code untouched;
 - the first conversion reads the whole image into memory, bounded by DSH attachment byte limits.
 
 ## Development and tests
@@ -155,7 +158,8 @@ Coverage:
 
 - `test/host.test.js`: registration and de-duplication, standard JSON Schema shape, AVIF/TIFF/SVG
   conversion, direct passthrough, extension-less AVIF sniffing, HEIC refusal, unknown
-  extension/empty argument, a route without image input, missing Sharp and conversion failure;
+  extension/empty argument, a route without image input, both host spellings of the model error code,
+  pass-through of other codes, missing Sharp and conversion failure;
 - `test/client.test.js`: loads the client bundle through `node:vm`, checks the ModuleLoader id,
   `inject`, the three capture listeners installed by `apply`, and cleanup through `ctx.effect`.
 

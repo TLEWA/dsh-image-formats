@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+- Backward-compatible error-code recognition: host 0.2.3-alpha.1 renamed "the model cannot take
+  images" from `IMAGE_UNSUPPORTED_MODEL` (rc.5 `dsh-tool-fs/src/read-image.ts:136`) to
+  `MODEL_DOES_NOT_SUPPORT_IMAGES` (alpha, same file `:137`). New exports
+  `IMAGE_MODEL_UNSUPPORTED_CODES` and `isImageModelUnsupportedCode()` recognize both spellings; a
+  failing `saveImage` still reports the stable `IMAGE_UNSUPPORTED_MODEL`, and every other code
+  (including alpha's `IMAGE_REQUEST_TOO_LARGE`) keeps passing through untouched. The plugin's own
+  codes and rc.5 behaviour are unchanged.
+- Tests: two new `test/host.test.js` cases cover "both spellings are recognized" and "other codes
+  are unaffected".
+
 ## [0.1.0] - 2026-11-20
 
 First release.
