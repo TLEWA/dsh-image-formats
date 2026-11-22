@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { apply } from '../lib/index.js'
+import { apply, IMAGE_MODEL_UNSUPPORTED_CODES, isImageModelUnsupportedCode } from '../lib/index.js'
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00])
 const AVIF = Buffer.from('000000186674797061766966000000006176696600000000', 'hex')
@@ -227,6 +227,64 @@ test('reports a route that cannot take images before touching the file', async (
   await assert.rejects(
     () => tool.execute({ file_path: 'photo.avif' }, exec),
     (error) => error.code === 'IMAGE_UNSUPPORTED_MODEL',
+  )
+})
+
+test('recognizes both host spellings of the model-capability error', async () => {
+  assert.deepEqual([...IMAGE_MODEL_UNSUPPORTED_CODES], ['IMAGE_UNSUPPORTED_MODEL', 'MODEL_DOES_NOT_SUPPORT_IMAGES'])
+  // rc.5, then 0.2.3-alpha.1, then everything that must not be folded in.
+  assert.equal(isImageModelUnsupportedCode('IMAGE_UNSUPPORTED_MODEL'), true)
+  assert.equal(isImageModelUnsupportedCode('MODEL_DOES_NOT_SUPPORT_IMAGES'), true)
+  assert.equal(isImageModelUnsupportedCode('IMAGE_REQUEST_TOO_LARGE'), false)
+  assert.equal(isImageModelUnsupportedCode('IMAGE_UNSUPPORTED_FORMAT'), false)
+  assert.equal(isImageModelUnsupportedCode(undefined), false)
+  assert.equal(isImageModelUnsupportedCode(42), false)
+
+  for (const hostCode of ['IMAGE_UNSUPPORTED_MODEL', 'MODEL_DOES_NOT_SUPPORT_IMAGES']) {
+    const { agent } = agentFor()
+    const { services } = fakeServices({ agents: { list: () => [agent] } })
+    services.attachments.saveImage = async () => {
+      throw Object.assign(new Error('model rejected by ' + hostCode), { code: hostCode })
+    }
+    const { ctx } = makeCtx(services)
+    apply(ctx, { loadSharp: () => fakeSharp() })
+
+    await assert.rejects(
+      () => agent.registered[0].execute({ file_path: 'photo.png' }, exec),
+      (error) => error.code === 'IMAGE_UNSUPPORTED_MODEL' && error.message.includes('model rejected by ' + hostCode),
+      hostCode,
+    )
+  }
+})
+
+test('leaves every other attachment error code untouched', async () => {
+  for (const hostCode of ['IMAGE_REQUEST_TOO_LARGE', 'IMAGE_SAVE_FAILED', 'ATTACHMENT_BACKEND_DOWN']) {
+    const { agent } = agentFor()
+    const { services } = fakeServices({ agents: { list: () => [agent] } })
+    services.attachments.saveImage = async () => {
+      throw Object.assign(new Error('storage said no'), { code: hostCode })
+    }
+    const { ctx } = makeCtx(services)
+    apply(ctx, { loadSharp: () => fakeSharp() })
+
+    await assert.rejects(
+      () => agent.registered[0].execute({ file_path: 'photo.png' }, exec),
+      (error) => error.code === hostCode,
+      hostCode,
+    )
+  }
+
+  const { agent } = agentFor()
+  const { services } = fakeServices({ agents: { list: () => [agent] } })
+  services.attachments.saveImage = async () => {
+    throw new Error('no code at all')
+  }
+  const { ctx } = makeCtx(services)
+  apply(ctx, { loadSharp: () => fakeSharp() })
+
+  await assert.rejects(
+    () => agent.registered[0].execute({ file_path: 'photo.png' }, exec),
+    (error) => error.code === 'IMAGE_SAVE_FAILED',
   )
 })
 

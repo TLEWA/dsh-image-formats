@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+- 错误码识别向后兼容：宿主 0.2.3-alpha.1 把「模型不支持图片」从 `IMAGE_UNSUPPORTED_MODEL`
+  （rc.5 `dsh-tool-fs/src/read-image.ts:136`）改名为 `MODEL_DOES_NOT_SUPPORT_IMAGES`（alpha 同文件
+  `:137`）。新增导出 `IMAGE_MODEL_UNSUPPORTED_CODES` 与 `isImageModelUnsupportedCode()`，两种拼写
+  都能识别；`saveImage` 失败时统一报告稳定的 `IMAGE_UNSUPPORTED_MODEL`，其它错误码（含 alpha 新增
+  的 `IMAGE_REQUEST_TOO_LARGE`）继续原样透传。插件自身抛出的错误码与 rc.5 行为不变。
+- 测试补充：`test/host.test.js` 新增两条用例，分别覆盖「新旧码都能识别」与「其它码不受影响」。
+
 ## [0.1.0] - 2026-11-20
 
 首个版本 / First release.

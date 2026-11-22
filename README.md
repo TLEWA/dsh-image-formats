@@ -128,7 +128,10 @@ dsh plugin --profile desktop add .
 - 转换会重新编码：EXIF、ICC/HDR、10-bit 等信息可能丢失或变化，PNG 体积也可能比原 AVIF 大；
 - 原文件不会被修改；会话里新增的是 PNG 附件；
 - 宿主的图片能力门槛与官方一致：调用路由必须声明 `image` 输入，否则会先报
-  `IMAGE_UNSUPPORTED_MODEL`，不会白读文件；
+  `IMAGE_UNSUPPORTED_MODEL`，不会白读文件。0.2.3-alpha.1 把同一语义的错误码改名为
+  `MODEL_DOES_NOT_SUPPORT_IMAGES`；插件通过 `IMAGE_MODEL_UNSUPPORTED_CODES` 与
+  `isImageModelUnsupportedCode()` 同时识别两种拼写，对外仍统一报告 `IMAGE_UNSUPPORTED_MODEL`，
+  其它错误码原样透传；
 - 首次转换会在内存里读入整张图，超大图受 DSH 附件字节上限约束。
 
 ## 开发与测试
@@ -141,7 +144,8 @@ npm test        # node --test test/host.test.js test/client.test.js
 测试覆盖：
 
 - `test/host.test.js`：注册与去重、标准 JSON Schema 形状、AVIF/TIFF/SVG 转 PNG、直接格式
-  直通、无扩展名 AVIF 嗅探、HEIC 拒绝、未知扩展名/空参数、非视觉模型、Sharp 缺失与转换失败；
+  直通、无扩展名 AVIF 嗅探、HEIC 拒绝、未知扩展名/空参数、非视觉模型、新旧模型错误码识别与其它
+  错误码透传、Sharp 缺失与转换失败；
 - `test/client.test.js`：用 `node:vm` 加载客户端包，验证 ModuleLoader id、`inject`、`apply`
   安装的三个捕获监听，以及 `ctx.effect` 的清理。
 
