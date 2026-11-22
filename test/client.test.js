@@ -230,3 +230,151 @@ test('trusts a declared non-AVIF MIME over an avif filename', () => {
 
   assert.equal(prevented, 0)
 })
+
+
+function fakeSlots() {
+  const slots = {
+    entries_: [],
+    spec: null,
+    component: null,
+    watcher: null,
+    released: false,
+    unregistered: 0,
+    unsubscribed: 0,
+  }
+  let releaseEntry = null
+  slots.entries = () => slots.entries_
+  slots.inject = (key, factory) => {
+    assert.equal(key, 'conversation.input.attachments')
+    releaseEntry = factory()
+    return () => {
+      slots.released = true
+      if (typeof releaseEntry === 'function') releaseEntry()
+    }
+  }
+  slots.register = (spec, component) => {
+    slots.spec = spec
+    slots.component = component
+    slots.entries_.push(component)
+    return () => { slots.unregistered += 1 }
+  }
+  slots.subscribe = (key, listener) => {
+    assert.equal(key, 'conversation.input.attachments')
+    slots.watcher = listener
+    return () => { slots.unsubscribed += 1 }
+  }
+  return slots
+}
+
+function composerHarness(sandbox) {
+  const card = { isConnected: true }
+  const input = new sandbox.HTMLInputElement()
+  input.type = 'file'
+  input.disabled = false
+  input.files = [new sandbox.File([], 'shot.avif', { type: 'image/avif' })]
+  input.closest = (selector) => (selector === '[data-composer-card="true"]' ? card : null)
+  card.querySelector = () => input
+  input.dispatches = 0
+  input.dispatchEvent = () => { input.dispatches += 1; return true }
+  sandbox.createImageBitmap = async () => ({ width: 8, height: 8, close() {} })
+  sandbox.document.createElement = () => ({
+    width: 0,
+    height: 0,
+    getContext: () => ({ drawImage() {} }),
+    toBlob: (callback) => callback({ size: 16 }),
+  })
+  const event = {
+    target: input,
+    defaultPrevented: false,
+    preventDefault() {},
+    stopPropagation() {},
+    stopImmediatePropagation() {},
+  }
+  return { input, event }
+}
+
+test('registers the attachment bridge in an empty host slot and releases it on dispose', () => {
+  const { module } = loadClient()
+  const slots = fakeSlots()
+  let cleanup
+  module.apply({
+    slots,
+    effect(factory) { cleanup = factory() },
+  })
+
+  assert.equal(slots.spec.name, 'conversation.input.attachments')
+  assert.equal(typeof slots.component, 'function')
+  cleanup()
+  assert.equal(slots.released, true)
+  assert.equal(slots.unsubscribed, 1)
+  assert.equal(slots.unregistered, 1)
+})
+
+test('leaves the attachment cell to its occupant and keeps the DOM path', () => {
+  const { module, listeners } = loadClient()
+  const slots = fakeSlots()
+  slots.entries_.push(() => null)
+  let injected = 0
+  slots.inject = () => { injected += 1; return () => {} }
+
+  module.apply({ slots, effect: () => () => {} })
+
+  assert.equal(injected, 0)
+  assert.ok(listeners.has('change'))
+})
+
+test('waits for a slot service that arrives after the plugin applied', () => {
+  const { module } = loadClient()
+  const ctx = {
+    effect: () => () => {},
+    on(event, listener) {
+      assert.equal(event, 'internal/service')
+      ctx.listener = listener
+      return () => { ctx.off = true }
+    },
+  }
+  module.apply(ctx)
+  const slots = fakeSlots()
+  ctx.slots = slots
+  ctx.listener('internal/service')
+  assert.equal(slots.spec.name, 'conversation.input.attachments')
+})
+
+test('hands converted files to the slot intake instead of the hidden input', async () => {
+  const { module, listeners, sandbox } = loadClient()
+  const slots = fakeSlots()
+  module.apply({ slots, effect: () => () => {} })
+
+  const received = []
+  slots.component({ onAddFiles: (files) => received.push(...files) })
+  const { input, event } = composerHarness(sandbox)
+  listeners.get('change').listener(event)
+  await new Promise((resolve) => setTimeout(resolve, 50))
+
+  assert.equal(input.dispatches, 0)
+  assert.equal(received.length, 1)
+  assert.equal(received[0].type, 'image/png')
+  assert.equal(received[0].name, 'shot.png')
+})
+
+test('falls back to the hidden input when the slot intake throws', async () => {
+  const { module, listeners, sandbox } = loadClient()
+  const slots = fakeSlots()
+  module.apply({ slots, effect: () => () => {} })
+
+  slots.component({ onAddFiles: () => { throw new Error('slot refused') } })
+  const { input, event } = composerHarness(sandbox)
+  listeners.get('change').listener(event)
+  await new Promise((resolve) => setTimeout(resolve, 50))
+
+  assert.equal(input.dispatches, 1)
+})
+
+test('ignores owner props without a usable onAddFiles', () => {
+  const { module } = loadClient()
+  const slots = fakeSlots()
+  module.apply({ slots, effect: () => () => {} })
+  for (const props of [undefined, null, {}, { onAddFiles: 'nope' }]) {
+    assert.doesNotThrow(() => slots.component(props))
+  }
+})
