@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-22
+
 - 错误码识别向后兼容：宿主 0.2.3-alpha.1 把「模型不支持图片」从 `IMAGE_UNSUPPORTED_MODEL`
   （rc.5 `dsh-tool-fs/src/read-image.ts:136`）改名为 `MODEL_DOES_NOT_SUPPORT_IMAGES`（alpha 同文件
   `:137`）。新增导出 `IMAGE_MODEL_UNSUPPORTED_CODES` 与 `isImageModelUnsupportedCode()`，两种拼写
@@ -19,6 +21,32 @@
   认空槽；一直等不到就永久走 DOM 回灌。客户端没有模块依赖，按要求不声明 `dsh.client.inject`：
   `slots` 通过 `ctx` 获取，不 import 宿主包。
 - `read_image` 宿主侧行为与 Sharp 探测逻辑未改动。
+
+- Backward-compatible error-code recognition: host 0.2.3-alpha.1 renamed "the model cannot take
+  images" from `IMAGE_UNSUPPORTED_MODEL` (rc.5 `dsh-tool-fs/src/read-image.ts:136`) to
+  `MODEL_DOES_NOT_SUPPORT_IMAGES` (alpha, same file `:137`). New exports
+  `IMAGE_MODEL_UNSUPPORTED_CODES` and `isImageModelUnsupportedCode()` recognize both spellings; a
+  failing `saveImage` still reports the stable `IMAGE_UNSUPPORTED_MODEL`, and every other code
+  (including alpha's `IMAGE_REQUEST_TOO_LARGE`) keeps passing through untouched. The plugin's own
+  codes and rc.5 behaviour are unchanged.
+- Tests: two new `test/host.test.js` cases cover "both spellings are recognized" and "other codes
+  are unaffected".
+- The client attachment entry now uses the host's public `conversation.input.attachments` slot: it
+  reads `onAddFiles` from the owner props, so converted PNGs go straight into the official upload
+  path instead of depending on the private `[data-composer-card="true"]` plus hidden
+  `input[type="file"]` DOM shape.
+- That slot is a single cell: registering in it shadows the host's own attachment rail, which has no
+  public rebuild entry. The bridge is therefore mounted only while the cell is empty and retracts as
+  soon as another entry appears; in that case the plugin keeps the DOM write-back and the host rail
+  renders untouched.
+- Slot registration and teardown are idempotent: `dispose` clears the callback, unsubscribes and
+  unregisters the entry. A missing or throwing slot only logs `console.warn` and never breaks the
+  host composer.
+- When the slot service arrives after the plugin, the client listens once on cordis
+  `internal/service` to attach the bridge, still empty-cell only; if it never arrives the DOM
+  write-back stays permanently. The client has no module dependencies, so per this repo it does not
+  declare `dsh.client.inject`: `slots` comes from `ctx` and no host package is imported.
+- Host-side `read_image` behaviour and the Sharp discovery logic are unchanged.
 
 ## [0.1.0] - 2026-11-20
 

@@ -1,6 +1,6 @@
 {
   "name": "dsh-image-formats",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Let read_image and the composer accept AVIF/TIFF/SVG by converting them to PNG automatically. 让 read_image 与输入框自动把 AVIF/TIFF/SVG 转成 PNG，模型无需额外步骤即可读图。",
   "type": "module",
   "main": "lib/index.js",
