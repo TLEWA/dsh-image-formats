@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-22
+
 - Backward-compatible error-code recognition: host 0.2.3-alpha.1 renamed "the model cannot take
   images" from `IMAGE_UNSUPPORTED_MODEL` (rc.5 `dsh-tool-fs/src/read-image.ts:136`) to
   `MODEL_DOES_NOT_SUPPORT_IMAGES` (alpha, same file `:137`). New exports
